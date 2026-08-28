@@ -481,7 +481,8 @@
             // URLs de exportação CSV do Google Sheets
             csvUrls: {
                 inscricoes: 'https://docs.google.com/spreadsheets/d/15B2dIthjJbvE2Fx224UAsIDK0x_YSAGe56Wu-fyaZdU/export?format=csv&gid=49036079',
-                caixa: 'https://docs.google.com/spreadsheets/d/15B2dIthjJbvE2Fx224UAsIDK0x_YSAGe56Wu-fyaZdU/export?format=csv&gid=1712502285'
+                previsoes: 'https://docs.google.com/spreadsheets/d/15B2dIthjJbvE2Fx224UAsIDK0x_YSAGe56Wu-fyaZdU/export?format=csv&gid=536330890',
+                fluxoCaixa: 'https://docs.google.com/spreadsheets/d/15B2dIthjJbvE2Fx224UAsIDK0x_YSAGe56Wu-fyaZdU/export?format=csv&gid=989897786'
             },
 
             // Mapeamento de colunas (0-indexed) - CONFORME SUA PLANILHA
@@ -510,15 +511,18 @@
             constructor() {
                 this.data = {
                     inscricoes: [],
-                    caixa: []
+                    previsoes: [],
+                    fluxoCaixa: []
                 };
                 this.lastFetchError = null;
+                this.lastUpdateTime = null;
             }
 
             async fetch() {
                 try {
                     await this.fetchFromCSV();
                     this.lastFetchError = null;
+                    this.lastUpdateTime = new Date();
                     return true;
                 } catch (error) {
                     console.error('Erro ao buscar dados:', error);
@@ -535,16 +539,20 @@
                 // Fetch da aba Inscrições
                 const inscricoesResponse = await fetch(CONFIG.csvUrls.inscricoes);
                 if (!inscricoesResponse.ok) throw new Error('Erro ao buscar inscrições');
-
                 const inscricoesText = await inscricoesResponse.text();
                 this.data.inscricoes = this.parseCSV(inscricoesText, 'inscricoes');
 
-                // Fetch da aba Caixa
-                const caixaResponse = await fetch(CONFIG.csvUrls.caixa);
-                if (!caixaResponse.ok) throw new Error('Erro ao buscar caixa');
+                // Fetch da aba Previsões de Lançamentos
+                const previsoesResponse = await fetch(CONFIG.csvUrls.previsoes);
+                if (!previsoesResponse.ok) throw new Error('Erro ao buscar previsões');
+                const previsoesText = await previsoesResponse.text();
+                this.data.previsoes = this.parseCSV(previsoesText, 'fluxo');
 
-                const caixaText = await caixaResponse.text();
-                this.data.caixa = this.parseCSV(caixaText, 'caixa');
+                // Fetch da aba Fluxo de Caixa
+                const fluxoResponse = await fetch(CONFIG.csvUrls.fluxoCaixa);
+                if (!fluxoResponse.ok) throw new Error('Erro ao buscar fluxo de caixa');
+                const fluxoText = await fluxoResponse.text();
+                this.data.fluxoCaixa = this.parseCSV(fluxoText, 'fluxo');
             }
 
             parseCSV(csvText, tipo) {
@@ -559,31 +567,50 @@
                     if (values.length === 0) continue;
 
                     if (tipo === 'inscricoes') {
+                        const sexo = this.getCSVValue(values, CONFIG.columns.sexo).trim();
+                        const status = this.getCSVValue(values, CONFIG.columns.status).trim();
+
                         data.push({
                             nome: this.getCSVValue(values, CONFIG.columns.nome),
-                            sexo: this.getCSVValue(values, CONFIG.columns.sexo),
+                            sexo: sexo,
+                            sexoNormal: this.normalizarSexo(sexo),
                             federacao: this.getCSVValue(values, CONFIG.columns.federacao),
                             tipoInscricao: this.getCSVValue(values, CONFIG.columns.tipoInscricao),
-                            status: this.getCSVValue(values, CONFIG.columns.status),
+                            status: status,
+                            statusNormal: status.toLowerCase().includes('confirmado') ? 'Confirmado' : 'Pendente',
                             valorReceber: this.parseNumber(this.getCSVValue(values, CONFIG.columns.valorReceber)),
                             valorRecebido: this.parseNumber(this.getCSVValue(values, CONFIG.columns.valorReceber)) -
                                           this.parseNumber(this.getCSVValue(values, CONFIG.columns.valorRestante))
                         });
-                    } else if (tipo === 'caixa') {
-                        const descricao = this.getCSVValue(values, 0);
-                        const valor = this.parseNumber(this.getCSVValue(values, 1));
-                        if (descricao && valor) {
+                    } else if (tipo === 'fluxo') {
+                        const fluxo = this.getCSVValue(values, 0).trim().toLowerCase();
+                        const tipoDesc = this.getCSVValue(values, 1).trim();
+                        let valor = 0;
+
+                        // Verificar qual coluna tem o valor (G para previsões, F para fluxo)
+                        const valorColG = this.parseNumber(this.getCSVValue(values, 6));
+                        const valorColF = this.parseNumber(this.getCSVValue(values, 5));
+                        valor = valorColG || valorColF;
+
+                        if (tipoDesc && valor) {
                             data.push({
-                                descricao: descricao,
-                                valor: valor,
-                                tipo: descricao.toLowerCase().includes('entrada') ||
-                                      descricao.toLowerCase().includes('inscr') ? 'Entrada' : 'Saída'
+                                fluxo: fluxo.includes('entrada') ? 'Entrada' : 'Saída',
+                                tipo: tipoDesc,
+                                valor: valor
                             });
                         }
                     }
                 }
 
                 return data;
+            }
+
+            normalizarSexo(sexo) {
+                const s = sexo.trim().toUpperCase();
+                if (s === 'F' || s === 'FEMININO' || s === 'MULHER') return 'F';
+                if (s === 'M' || s === 'MASCULINO' || s === 'HOMEM') return 'M';
+                if (s === 'D' || s === 'DIÁRIA' || s === 'DIARIO') return 'D';
+                return s;
             }
 
             parseCSVLine(line) {
@@ -620,8 +647,8 @@
             loadExampleData() {
                 // Dados de exemplo para demonstração
                 this.data.inscricoes = [
-                    { nome: 'Participante 1', status: 'Confirmado', sexo: 'Feminino', federacao: 'FPB', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
-                    { nome: 'Participante 2', status: 'Confirmado', sexo: 'Masculino', federacao: 'FPB', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
+                    { nome: 'Participante 1', status: 'Confirmado', sexo: 'F', federacao: 'FPB', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
+                    { nome: 'Participante 2', status: 'Confirmado', sexo: 'M', federacao: 'FPB', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
                     { nome: 'Participante 3', status: 'Confirmado', sexo: 'F', federacao: 'FEPESC', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
                     { nome: 'Participante 4', status: 'Pendente', sexo: 'M', federacao: 'FPB', valorRecebido: 0, tipoInscricao: 'Todos os dias' },
                     { nome: 'Participante 5', status: 'Confirmado', sexo: 'D', federacao: 'FEAPESC', valorRecebido: 50, tipoInscricao: 'Diária' },
@@ -642,14 +669,14 @@
 
                 const stats = {
                     totalInscritos: inscricoesValidas.length,
-                    confirmados: inscricoesValidas.filter(i => i.status && i.status.toLowerCase().includes('confirmado')).length,
-                    mulheres: inscricoesValidas.filter(i => i.sexo === 'Feminino' || i.sexo === 'f').length,
-                    homens: inscricoesValidas.filter(i => i.sexo === 'Masculino' || i.sexo === 'm').length,
+                    confirmados: inscricoesValidas.filter(i => i.statusNormal === 'Confirmado').length,
+                    mulheres: inscricoesValidas.filter(i => i.sexoNormal === 'F').length,
+                    homens: inscricoesValidas.filter(i => i.sexoNormal === 'M').length,
                     diarias: inscricoesValidas.filter(i => i.tipoInscricao && i.tipoInscricao.toLowerCase().includes('diária')).length,
                     totalVagas: CONFIG.camp.totalVagas,
                     federacoes: this.agruparPorFederacao(inscricoesValidas),
                     totalEntradas: inscricoesValidas
-                        .filter(i => i.status && i.status.toLowerCase().includes('confirmado'))
+                        .filter(i => i.statusNormal === 'Confirmado')
                         .reduce((sum, i) => sum + (i.valorRecebido || 0), 0),
                 };
 
@@ -672,7 +699,7 @@
                         grupos[fed] = { total: 0, confirmados: 0, valor: 0 };
                     }
                     grupos[fed].total++;
-                    if (inscricao.status && inscricao.status.toLowerCase().includes('confirmado')) {
+                    if (inscricao.statusNormal === 'Confirmado') {
                         grupos[fed].confirmados++;
                         grupos[fed].valor += inscricao.valorRecebido || 0;
                     }
@@ -727,14 +754,18 @@
                 this.renderCaixa();
 
                 // Última atualização
-                document.getElementById('lastUpdate').textContent =
-                    new Date().toLocaleString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
+                if (this.data.lastUpdateTime) {
+                    document.getElementById('lastUpdate').textContent =
+                        this.data.lastUpdateTime.toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                } else {
+                    document.getElementById('lastUpdate').textContent = '-';
+                }
             }
 
             renderFederacoes(federacoes) {
@@ -756,30 +787,30 @@
             }
 
             renderCaixa() {
-                const caixa = this.data.caixa;
+                // Usar previsões de lançamentos para a previsão
+                const previsoes = this.data.previsoes || [];
 
-                // Calcular entradas e saídas
-                const totalEntradas = caixa
-                    .filter(c => c.tipo === 'Entrada')
+                const totalEntradasPrev = previsoes
+                    .filter(c => c.fluxo === 'Entrada')
                     .reduce((sum, c) => sum + (c.valor || 0), 0);
 
-                const totalSaidas = caixa
-                    .filter(c => c.tipo === 'Saída')
+                const totalSaidasPrev = previsoes
+                    .filter(c => c.fluxo === 'Saída')
                     .reduce((sum, c) => sum + (c.valor || 0), 0);
 
-                const resultado = totalEntradas - totalSaidas;
+                const resultadoPrev = totalEntradasPrev - totalSaidasPrev;
 
                 document.getElementById('totalEntradas').textContent =
-                    'R$ ' + totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    'R$ ' + totalEntradasPrev.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 document.getElementById('totalSaidas').textContent =
-                    'R$ ' + totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    'R$ ' + totalSaidasPrev.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 document.getElementById('saldoCaixa').textContent =
-                    'R$ ' + resultado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    'R$ ' + resultadoPrev.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-                const cor = resultado >= 0 ? '#28a745' : '#dc3545';
+                const cor = resultadoPrev >= 0 ? '#28a745' : '#dc3545';
                 document.getElementById('resultadoLiquido').style.color = cor;
                 document.getElementById('resultadoLiquido').textContent =
-                    (resultado >= 0 ? '+' : '') + 'R$ ' + resultado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    (resultadoPrev >= 0 ? '+' : '') + 'R$ ' + resultadoPrev.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
         }
 
