@@ -747,25 +747,30 @@
                 // Filtrar inscrições válidas (com federação preenchida)
                 const inscricoesValidas = inscricoes.filter(i => i.federacao && i.federacao.trim() !== '');
 
+                // Filtrar apenas confirmadas para a distribuição
+                const inscricoesConfirmadas = inscricoesValidas.filter(i => i.statusNormal === 'Confirmado');
+
                 const stats = {
                     totalInscritos: inscricoesValidas.length,
-                    confirmados: inscricoesValidas.filter(i => i.statusNormal === 'Confirmado').length,
-                    mulheres: inscricoesValidas.filter(i => i.sexoNormal === 'F').length,
-                    homens: inscricoesValidas.filter(i => i.sexoNormal === 'M').length,
-                    diarias: inscricoesValidas.filter(i => i.tipoInscricao && i.tipoInscricao.toLowerCase().includes('diária')).length,
+                    confirmados: inscricoesConfirmadas.length,
+                    // Distribuição conta apenas confirmados
+                    mulheres: inscricoesConfirmadas.filter(i => i.sexoNormal === 'F').length,
+                    homens: inscricoesConfirmadas.filter(i => i.sexoNormal === 'M').length,
+                    diarias: inscricoesConfirmadas.filter(i => i.tipoInscricao && i.tipoInscricao.toLowerCase().includes('diária')).length,
                     totalVagas: CONFIG.camp.totalVagas,
                     federacoes: this.agruparPorFederacao(inscricoesValidas),
-                    totalEntradas: inscricoesValidas
-                        .filter(i => i.statusNormal === 'Confirmado')
+                    totalEntradas: inscricoesConfirmadas
                         .reduce((sum, i) => sum + (i.valorRecebido || 0), 0),
                 };
 
-                stats.percentMulheres = stats.totalInscritos > 0 ?
-                    Math.round((stats.mulheres / stats.totalInscritos) * 100) : 0;
-                stats.percentHomens = stats.totalInscritos > 0 ?
-                    Math.round((stats.homens / stats.totalInscritos) * 100) : 0;
-                stats.percentDiarias = stats.totalInscritos > 0 ?
-                    Math.round((stats.diarias / stats.totalInscritos) * 100) : 0;
+                // Percentual baseado em confirmados
+                const totalConfirmados = stats.confirmados;
+                stats.percentMulheres = totalConfirmados > 0 ?
+                    Math.round((stats.mulheres / totalConfirmados) * 100) : 0;
+                stats.percentHomens = totalConfirmados > 0 ?
+                    Math.round((stats.homens / totalConfirmados) * 100) : 0;
+                stats.percentDiarias = totalConfirmados > 0 ?
+                    Math.round((stats.diarias / totalConfirmados) * 100) : 0;
 
                 return stats;
             }
@@ -874,15 +879,24 @@
                 // Usar previsões de lançamentos para a previsão
                 const previsoes = this.data.previsoes || [];
 
-                const totalEntradasPrev = previsoes
-                    .filter(c => c.fluxo === 'Entrada')
+                console.log('renderCaixa() - Previsões disponíveis:', previsoes);
+                console.log('Total de previsões:', previsoes.length);
+
+                const entradasFiltradas = previsoes.filter(c => c.fluxo === 'Entrada');
+                const saidasFiltradas = previsoes.filter(c => c.fluxo === 'Saída');
+
+                console.log('Entradas filtradas:', entradasFiltradas);
+                console.log('Saídas filtradas:', saidasFiltradas);
+
+                const totalEntradasPrev = entradasFiltradas
                     .reduce((sum, c) => sum + (c.valor || 0), 0);
 
-                const totalSaidasPrev = previsoes
-                    .filter(c => c.fluxo === 'Saída')
+                const totalSaidasPrev = saidasFiltradas
                     .reduce((sum, c) => sum + (c.valor || 0), 0);
 
                 const resultadoPrev = totalEntradasPrev - totalSaidasPrev;
+
+                console.log('Total Entradas:', totalEntradasPrev, 'Total Saídas:', totalSaidasPrev);
 
                 document.getElementById('totalEntradas').textContent =
                     'R$ ' + totalEntradasPrev.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -901,15 +915,24 @@
                 // Usar fluxo de caixa (movimentações reais)
                 const fluxo = this.data.fluxoCaixa || [];
 
-                const totalEntradasReais = fluxo
-                    .filter(c => c.fluxo === 'Entrada')
+                console.log('renderMovementosReais() - Fluxo disponível:', fluxo);
+                console.log('Total de movimentações:', fluxo.length);
+
+                const entradasReaisFiltradas = fluxo.filter(c => c.fluxo === 'Entrada');
+                const saidasReaisFiltradas = fluxo.filter(c => c.fluxo === 'Saída');
+
+                console.log('Entradas reais filtradas:', entradasReaisFiltradas);
+                console.log('Saídas reais filtradas:', saidasReaisFiltradas);
+
+                const totalEntradasReais = entradasReaisFiltradas
                     .reduce((sum, c) => sum + (c.valor || 0), 0);
 
-                const totalSaidasReais = fluxo
-                    .filter(c => c.fluxo === 'Saída')
+                const totalSaidasReais = saidasReaisFiltradas
                     .reduce((sum, c) => sum + (c.valor || 0), 0);
 
                 const saldoRealizado = totalEntradasReais - totalSaidasReais;
+
+                console.log('Total Entradas Reais:', totalEntradasReais, 'Total Saídas Reais:', totalSaidasReais);
 
                 document.getElementById('totalEntradasReais').textContent =
                     'R$ ' + totalEntradasReais.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
