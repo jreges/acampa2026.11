@@ -620,8 +620,8 @@
             loadExampleData() {
                 // Dados de exemplo para demonstração
                 this.data.inscricoes = [
-                    { nome: 'Participante 1', status: 'Confirmado', sexo: 'F', federacao: 'FPB', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
-                    { nome: 'Participante 2', status: 'Confirmado', sexo: 'M', federacao: 'FPB', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
+                    { nome: 'Participante 1', status: 'Confirmado', sexo: 'Feminino', federacao: 'FPB', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
+                    { nome: 'Participante 2', status: 'Confirmado', sexo: 'Masculino', federacao: 'FPB', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
                     { nome: 'Participante 3', status: 'Confirmado', sexo: 'F', federacao: 'FEPESC', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
                     { nome: 'Participante 4', status: 'Pendente', sexo: 'M', federacao: 'FPB', valorRecebido: 0, tipoInscricao: 'Todos os dias' },
                     { nome: 'Participante 5', status: 'Confirmado', sexo: 'D', federacao: 'FEAPESC', valorRecebido: 50, tipoInscricao: 'Diária' },
@@ -643,8 +643,8 @@
                 const stats = {
                     totalInscritos: inscricoesValidas.length,
                     confirmados: inscricoesValidas.filter(i => i.status && i.status.toLowerCase().includes('confirmado')).length,
-                    mulheres: inscricoesValidas.filter(i => i.sexo === 'F' || i.sexo === 'f').length,
-                    homens: inscricoesValidas.filter(i => i.sexo === 'M' || i.sexo === 'm').length,
+                    mulheres: inscricoesValidas.filter(i => i.sexo === 'Feminino' || i.sexo === 'f').length,
+                    homens: inscricoesValidas.filter(i => i.sexo === 'Masculino' || i.sexo === 'm').length,
                     diarias: inscricoesValidas.filter(i => i.tipoInscricao && i.tipoInscricao.toLowerCase().includes('diária')).length,
                     totalVagas: CONFIG.camp.totalVagas,
                     federacoes: this.agruparPorFederacao(inscricoesValidas),
