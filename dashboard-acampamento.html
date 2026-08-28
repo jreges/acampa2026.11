@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Acampamento Das Trevas à Luz 2026</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a1428 0%, #1a2847 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* HEADER */
+        .header {
+            background: linear-gradient(135deg, #0a1428 0%, #1a2847 100%);
+            padding: 40px 30px;
+            border-radius: 15px;
+            margin-bottom: 40px;
+            border-left: 5px solid #FFEB00;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .header-logo {
+            width: 80px;
+            height: 80px;
+            background: #FFEB00;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #0a1428;
+            font-size: 28px;
+            box-shadow: 0 5px 15px rgba(255, 235, 0, 0.3);
+        }
+
+        .header-content {
+            flex: 1;
+        }
+
+        .header-content h1 {
+            color: #fff;
+            font-size: 36px;
+            margin-bottom: 5px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header-content p {
+            color: #FFEB00;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .last-update {
+            color: #aaa;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        /* CARDS GRID */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            border-top: 4px solid #FFEB00;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(255, 235, 0, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .card-label {
+            color: #666;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .card-value {
+            font-size: 42px;
+            font-weight: bold;
+            color: #0a1428;
+            margin-bottom: 5px;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .card-progress {
+            margin-top: 15px;
+            height: 6px;
+            background: #eee;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .card-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #FFEB00, #FFD700);
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        /* SECTION */
+        .section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0a1428;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 2px solid #FFEB00;
+            padding-bottom: 15px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: #FFEB00;
+            border-radius: 2px;
+        }
+
+        /* STATS ROW */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #FFEB00;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #0a1428;
+        }
+
+        /* CHART CONTAINER */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        /* TABLE */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .table thead {
+            background: #f8f9fa;
+        }
+
+        .table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #0a1428;
+            border-bottom: 2px solid #FFEB00;
+        }
+
+        .table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* ALERT */
+        .alert {
+            background: #fff3cd;
+            border-left: 4px solid #FFEB00;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #856404;
+            font-size: 14px;
+        }
+
+        /* LOADING */
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #FFEB00;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .header-content h1 {
+                font-size: 24px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .card-value {
+                font-size: 32px;
+            }
+
+            .stats-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* GENDER DISTRIBUTION */
+        .distribution {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .distribution-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-top: 3px solid #FFEB00;
+        }
+
+        .distribution-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #0a1428;
+        }
+
+        .distribution-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .distribution-percent {
+            font-size: 14px;
+            color: #FFEB00;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        /* ERROR STATE */
+        .error-message {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-logo">💙</div>
+            <div class="header-content">
+                <h1>Acampamento Das Trevas à Luz</h1>
+                <p>Dashboard de Monitoramento - Federação 2026</p>
+                <div class="last-update">
+                    Última atualização: <span id="lastUpdate">-</span>
+                    <span class="loading"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ALERTAS -->
+        <div id="alertContainer"></div>
+
+        <!-- CARDS PRINCIPAIS -->
+        <div class="grid">
+            <div class="card">
+                <span class="card-icon">📋</span>
+                <div class="card-label">Total de Vagas</div>
+                <div class="card-value" id="totalVagas">-</div>
+                <div class="card-subtitle">Capacidade total do acampamento</div>
+                <div class="card-progress">
+                    <div class="card-progress-bar" id="progressVagas" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <span class="card-icon">✅</span>
+                <div class="card-label">Confirmados</div>
+                <div class="card-value" id="confirmados">-</div>
+                <div class="card-subtitle">Inscrições confirmadas</div>
+                <div class="card-progress">
+                    <div class="card-progress-bar" id="progressConfirmados" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <span class="card-icon">📝</span>
+                <div class="card-label">Total de Inscritos</div>
+                <div class="card-value" id="totalInscritos">-</div>
+                <div class="card-subtitle">Todos os registros</div>
+                <div class="card-progress">
+                    <div class="card-progress-bar" id="progressInscritos" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <span class="card-icon">💰</span>
+                <div class="card-label">Saldo de Caixa</div>
+                <div class="card-value" id="saldoCaixa">-</div>
+                <div class="card-subtitle">Previsão atual</div>
+            </div>
+        </div>
+
+        <!-- DISTRIBUIÇÃO POR GÊNERO -->
+        <div class="section">
+            <div class="section-title">Distribuição de Participantes</div>
+            <div class="distribution">
+                <div class="distribution-item">
+                    <div class="distribution-value" id="qtdMulheres">-</div>
+                    <div class="distribution-label">Mulheres</div>
+                    <div class="distribution-percent" id="percentMulheres">0%</div>
+                </div>
+                <div class="distribution-item">
+                    <div class="distribution-value" id="qtdHomens">-</div>
+                    <div class="distribution-label">Homens</div>
+                    <div class="distribution-percent" id="percentHomens">0%</div>
+                </div>
+                <div class="distribution-item">
+                    <div class="distribution-value" id="qtdDiarias">-</div>
+                    <div class="distribution-label">Diárias</div>
+                    <div class="distribution-percent" id="percentDiarias">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- INSCRIÇÕES POR FEDERAÇÃO -->
+        <div class="section">
+            <div class="section-title">Inscrições por Federação</div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Federação</th>
+                            <th style="text-align: right;">Inscritos</th>
+                            <th style="text-align: right;">Confirmados</th>
+                            <th style="text-align: right;">Taxa</th>
+                        </tr>
+                    </thead>
+                    <tbody id="federacaoTableBody">
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #999;">Carregando dados...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PREVISÃO FINANCEIRA -->
+        <div class="section">
+            <div class="section-title">Previsão de Caixa</div>
+            <div class="stats-row">
+                <div class="stat">
+                    <div class="stat-label">Entradas Previstas</div>
+                    <div class="stat-value" id="totalEntradas" style="color: #28a745;">-</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Saídas Previstas</div>
+                    <div class="stat-value" id="totalSaidas" style="color: #dc3545;">-</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Saldo Resultado</div>
+                    <div class="stat-value" id="resultadoLiquido" style="color: #0a1428;">-</div>
+                </div>
+            </div>
+            <div class="alert">
+                📊 Os valores acima são baseados na previsão de inscrições confirmadas e nas configurações de pricing.
+            </div>
+        </div>
+
+        <!-- INFO -->
+        <div style="text-align: center; color: #aaa; font-size: 12px; margin-top: 40px; padding: 20px;">
+            <p>Dashboard atualizada automaticamente a cada minuto</p>
+            <p>Dados privados não são exibidos (apenas estatísticas agregadas)</p>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURAÇÃO - ALTERE ISSO COM SEUS DADOS
+        const CONFIG = {
+            // Google Sheets API Key (crie uma em https://console.cloud.google.com)
+            // Deixe vazio se usar CSV exportado
+            apiKey: '',
+
+            // ID da sua planilha do Google Sheets
+            spreadsheetId: '15B2dIthjJbvE2Fx224UAsIDK0x_YSAGe56Wu-fyaZdU',
+
+            // Configurações das abas
+            ranges: {
+                inscricoes: 'Inscrições!A:H',  // Ajuste conforme sua estrutura
+                caixa: 'Caixa e Previsões!A:D'
+            },
+
+            // Mapeamento de colunas (0-indexed)
+            columns: {
+                status: 2,           // Coluna de status (Confirmado/Pendente)
+                genero: 3,           // Coluna de gênero (M/F/D)
+                federacao: 4,        // Coluna de federação
+                valor: 5,            // Coluna de valor pago
+                dataInscricao: 1     // Coluna de data
+            },
+
+            // Dados da configuração do acampamento
+            camp: {
+                totalVagas: 100,
+                precoInteira: 300,
+                precoDiaria: 50
+            }
+        };
+
+        // CLASSE PARA GERENCIAR DADOS
+        class DashboardData {
+            constructor() {
+                this.data = {
+                    inscricoes: [],
+                    caixa: []
+                };
+            }
+
+            async fetch() {
+                try {
+                    // Se você tiver configurado a API Key do Google
+                    if (CONFIG.apiKey) {
+                        await this.fetchFromSheets();
+                    } else {
+                        // Fallback para dados de exemplo
+                        this.loadExampleData();
+                    }
+                    return true;
+                } catch (error) {
+                    console.error('Erro ao buscar dados:', error);
+                    this.loadExampleData();
+                    return true;
+                }
+            }
+
+            async fetchFromSheets() {
+                // Implementação da API do Google Sheets
+                // Você pode usar: https://sheets.googleapis.com/v4/spreadsheets/{spreadsheetId}/values/{range}
+                // Requer CORS habilitado ou um backend proxy
+                console.log('Para usar dados em tempo real:');
+                console.log('1. Configure uma Google Sheets API Key');
+                console.log('2. Habilite o CORS no seu servidor');
+                console.log('3. Ou exporte um CSV e use a URL do arquivo');
+            }
+
+            loadExampleData() {
+                // Dados de exemplo para demonstração
+                this.data.inscricoes = [
+                    { nome: 'Participante 1', status: 'Confirmado', genero: 'F', federacao: 'FPB', valor: 300, data: '2026-01-10' },
+                    { nome: 'Participante 2', status: 'Confirmado', genero: 'M', federacao: 'FPB', valor: 300, data: '2026-01-11' },
+                    { nome: 'Participante 3', status: 'Confirmado', genero: 'F', federacao: 'FEPESC', valor: 300, data: '2026-01-12' },
+                    { nome: 'Participante 4', status: 'Pendente', genero: 'M', federacao: 'FPB', valor: 0, data: '2026-01-13' },
+                    { nome: 'Participante 5', status: 'Confirmado', genero: 'D', federacao: 'FEAPESC', valor: 50, data: '2026-01-14' },
+                ];
+
+                this.data.caixa = [
+                    { tipo: 'Entrada', descricao: 'Inscrições', valor: 1200 },
+                    { tipo: 'Saída', descricao: 'Alimentação', valor: 500 },
+                    { tipo: 'Saída', descricao: 'Hospedagem', valor: 300 }
+                ];
+            }
+
+            calcularEstatisticas() {
+                const inscricoes = this.data.inscricoes;
+
+                const stats = {
+                    totalInscritos: inscricoes.length,
+                    confirmados: inscricoes.filter(i => i.status === 'Confirmado').length,
+                    mulheres: inscricoes.filter(i => i.genero === 'F').length,
+                    homens: inscricoes.filter(i => i.genero === 'M').length,
+                    diarias: inscricoes.filter(i => i.genero === 'D').length,
+                    totalVagas: CONFIG.camp.totalVagas,
+                    federacoes: this.agruparPorFederacao(),
+                    totalEntradas: inscricoes
+                        .filter(i => i.status === 'Confirmado')
+                        .reduce((sum, i) => sum + (i.valor || 0), 0),
+                };
+
+                stats.percentMulheres = stats.totalInscritos > 0 ?
+                    Math.round((stats.mulheres / stats.totalInscritos) * 100) : 0;
+                stats.percentHomens = stats.totalInscritos > 0 ?
+                    Math.round((stats.homens / stats.totalInscritos) * 100) : 0;
+                stats.percentDiarias = stats.totalInscritos > 0 ?
+                    Math.round((stats.diarias / stats.totalInscritos) * 100) : 0;
+
+                return stats;
+            }
+
+            agruparPorFederacao() {
+                const grupos = {};
+
+                this.data.inscricoes.forEach(inscricao => {
+                    const fed = inscricao.federacao || 'Sem Federação';
+                    if (!grupos[fed]) {
+                        grupos[fed] = { total: 0, confirmados: 0, valor: 0 };
+                    }
+                    grupos[fed].total++;
+                    if (inscricao.status === 'Confirmado') {
+                        grupos[fed].confirmados++;
+                        grupos[fed].valor += inscricao.valor || 0;
+                    }
+                });
+
+                return Object.entries(grupos).map(([nome, dados]) => ({
+                    nome,
+                    ...dados,
+                    taxa: dados.total > 0 ? Math.round((dados.confirmados / dados.total) * 100) : 0
+                })).sort((a, b) => b.total - a.total);
+            }
+        }
+
+        // CLASSE PARA RENDERIZAR
+        class Dashboard {
+            constructor(dataManager) {
+                this.data = dataManager;
+            }
+
+            render() {
+                const stats = this.data.calcularEstatisticas();
+
+                // Atualizar cards principais
+                document.getElementById('totalVagas').textContent = stats.totalVagas;
+                document.getElementById('confirmados').textContent = stats.confirmados;
+                document.getElementById('totalInscritos').textContent = stats.totalInscritos;
+
+                // Atualizar progresso
+                const progressConfirmados = (stats.confirmados / stats.totalVagas) * 100;
+                const progressInscritos = (stats.totalInscritos / stats.totalVagas) * 100;
+
+                document.getElementById('progressConfirmados').style.width = progressConfirmados + '%';
+                document.getElementById('progressInscritos').style.width = progressInscritos + '%';
+                document.getElementById('progressVagas').style.width =
+                    ((stats.confirmados + stats.mulheres + stats.homens) / stats.totalVagas * 100) + '%';
+
+                // Distribuição
+                document.getElementById('qtdMulheres').textContent = stats.mulheres;
+                document.getElementById('qtdHomens').textContent = stats.homens;
+                document.getElementById('qtdDiarias').textContent = stats.diarias;
+
+                document.getElementById('percentMulheres').textContent = stats.percentMulheres + '%';
+                document.getElementById('percentHomens').textContent = stats.percentHomens + '%';
+                document.getElementById('percentDiarias').textContent = stats.percentDiarias + '%';
+
+                // Tabela de federações
+                this.renderFederacoes(stats.federacoes);
+
+                // Caixa
+                this.renderCaixa();
+
+                // Última atualização
+                document.getElementById('lastUpdate').textContent =
+                    new Date().toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+            }
+
+            renderFederacoes(federacoes) {
+                const tbody = document.getElementById('federacaoTableBody');
+
+                if (federacoes.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #999;">Nenhuma inscrição registrada</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = federacoes.map(fed => `
+                    <tr>
+                        <td><strong>${fed.nome}</strong></td>
+                        <td style="text-align: right;">${fed.total}</td>
+                        <td style="text-align: right; color: #28a745;"><strong>${fed.confirmados}</strong></td>
+                        <td style="text-align: right;"><span style="background: #FFEB00; color: #0a1428; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px;">${fed.taxa}%</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            renderCaixa() {
+                const inscricoes = this.data.data.inscricoes;
+                const confirmados = inscricoes.filter(i => i.status === 'Confirmado');
+
+                const totalEntradas = confirmados.reduce((sum, i) => sum + (i.valor || 0), 0);
+                const totalSaidas = 2000; // Valor fixo de exemplo
+                const resultado = totalEntradas - totalSaidas;
+
+                document.getElementById('totalEntradas').textContent =
+                    'R$ ' + totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('totalSaidas').textContent =
+                    'R$ ' + totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('saldoCaixa').textContent =
+                    'R$ ' + resultado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                const cor = resultado >= 0 ? '#28a745' : '#dc3545';
+                document.getElementById('resultadoLiquido').style.color = cor;
+                document.getElementById('resultadoLiquido').textContent =
+                    (resultado >= 0 ? '+' : '') + 'R$ ' + resultado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+        }
+
+        // INICIALIZAR
+        async function init() {
+            const dataManager = new DashboardData();
+            const dashboard = new Dashboard(dataManager);
+
+            // Carregar dados iniciais
+            await dataManager.fetch();
+            dashboard.render();
+
+            // Atualizar a cada minuto
+            setInterval(async () => {
+                await dataManager.fetch();
+                dashboard.render();
+            }, 60000); // 60 segundos
+
+            // Mostrar informação de setup
+            if (!CONFIG.apiKey) {
+                const alertContainer = document.getElementById('alertContainer');
+                alertContainer.innerHTML = `
+                    <div class="alert" style="background: #d1ecf1; border-left-color: #17a2b8; color: #0c5460;">
+                        <strong>ℹ️ Para dados em tempo real:</strong> Configure a Google Sheets API Key na variável CONFIG.apiKey ou exporte um CSV da sua planilha.
+                        <a href="https://console.cloud.google.com" style="color: #0056b3; text-decoration: underline;">Criar API Key aqui</a>
+                    </div>
+                `;
+            }
+        }
+
+        // Executar quando o DOM carregar
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
