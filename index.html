@@ -468,6 +468,28 @@
             </div>
         </div>
 
+        <!-- MOVIMENTAÇÕES REAIS DE CAIXA -->
+        <div class="section">
+            <div class="section-title">Movimentações Reais de Caixa</div>
+            <div class="stats-row">
+                <div class="stat">
+                    <div class="stat-label">Entradas Realizadas</div>
+                    <div class="stat-value" id="totalEntradasReais" style="color: #28a745;">-</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Saídas Realizadas</div>
+                    <div class="stat-value" id="totalSaidasReais" style="color: #dc3545;">-</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Saldo Realizado</div>
+                    <div class="stat-value" id="saldoRealizado" style="color: #0a1428;">-</div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="fluxoCaixaChart"></canvas>
+            </div>
+        </div>
+
         <!-- INFO -->
         <div style="text-align: center; color: #aaa; font-size: 12px; margin-top: 40px; padding: 20px;">
             <p>Dashboard atualizada automaticamente a cada minuto</p>
@@ -475,6 +497,7 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script>
         // CONFIGURAÇÃO - SEUS DADOS REAIS
         const CONFIG = {
@@ -570,11 +593,15 @@
                         const sexo = this.getCSVValue(values, CONFIG.columns.sexo).trim();
                         const status = this.getCSVValue(values, CONFIG.columns.status).trim();
 
+                        // Só incluir se tiver federação preenchida
+                        const federacao = this.getCSVValue(values, CONFIG.columns.federacao).trim();
+                        if (!federacao) continue;
+
                         data.push({
                             nome: this.getCSVValue(values, CONFIG.columns.nome),
                             sexo: sexo,
                             sexoNormal: this.normalizarSexo(sexo),
-                            federacao: this.getCSVValue(values, CONFIG.columns.federacao),
+                            federacao: federacao,
                             tipoInscricao: this.getCSVValue(values, CONFIG.columns.tipoInscricao),
                             status: status,
                             statusNormal: status.toLowerCase().includes('confirmado') ? 'Confirmado' : 'Pendente',
@@ -583,25 +610,54 @@
                                           this.parseNumber(this.getCSVValue(values, CONFIG.columns.valorRestante))
                         });
                     } else if (tipo === 'fluxo') {
-                        const fluxo = this.getCSVValue(values, 0).trim().toLowerCase();
+                        const fluxoRaw = this.getCSVValue(values, 0).trim();
                         const tipoDesc = this.getCSVValue(values, 1).trim();
-                        let valor = 0;
 
-                        // Verificar qual coluna tem o valor (G para previsões, F para fluxo)
-                        const valorColG = this.parseNumber(this.getCSVValue(values, 6));
-                        const valorColF = this.parseNumber(this.getCSVValue(values, 5));
-                        valor = valorColG || valorColF;
+                        // Pular linhas vazias ou de cabeçalho
+                        if (!fluxoRaw || !tipoDesc) continue;
+                        if (fluxoRaw.toLowerCase() === 'fluxo') continue; // Skip header row
 
-                        if (tipoDesc && valor) {
+                        // Detectar se é entrada ou saída (mais flexível)
+                        const fluxoLower = fluxoRaw.toLowerCase();
+                        const isEntrada = fluxoLower.includes('entrada') ||
+                                         fluxoLower.includes('receita') ||
+                                         fluxoLower.includes('crédito') ||
+                                         fluxoLower === 'in' ||
+                                         fluxoLower === '+';
+                        const isSaida = fluxoLower.includes('saída') ||
+                                       fluxoLower.includes('saida') ||
+                                       fluxoLower.includes('despesa') ||
+                                       fluxoLower.includes('débito') ||
+                                       fluxoLower === 'out' ||
+                                       fluxoLower === '-';
+
+                        if (!isEntrada && !isSaida) {
+                            console.log(`Ignorando linha sem tipo válido: ${fluxoRaw} | ${tipoDesc}`);
+                            continue;
+                        }
+
+                        // Tenta coluna G (6) primeiro, depois F (5), depois H (7)
+                        let valor = this.parseNumber(this.getCSVValue(values, 6));
+                        if (valor === 0) {
+                            valor = this.parseNumber(this.getCSVValue(values, 5));
+                        }
+                        if (valor === 0) {
+                            valor = this.parseNumber(this.getCSVValue(values, 7));
+                        }
+
+                        // Sempre adicionar (mesmo que valor seja 0) para debug
+                        if (valor >= 0) {
                             data.push({
-                                fluxo: fluxo.includes('entrada') ? 'Entrada' : 'Saída',
+                                fluxo: isEntrada ? 'Entrada' : 'Saída',
                                 tipo: tipoDesc,
-                                valor: valor
+                                valor: valor,
+                                origem: fluxoRaw
                             });
                         }
                     }
                 }
 
+                console.log(`CSV parsed (${tipo}):`, data);
                 return data;
             }
 
@@ -719,6 +775,7 @@
         class Dashboard {
             constructor(dataManager) {
                 this.data = dataManager;
+                this.fluxoChart = null;
             }
 
             render() {
@@ -752,6 +809,9 @@
 
                 // Caixa
                 this.renderCaixa();
+
+                // Movimentações Reais
+                this.renderMovementosReais();
 
                 // Última atualização
                 if (this.data.lastUpdateTime) {
@@ -811,6 +871,131 @@
                 document.getElementById('resultadoLiquido').style.color = cor;
                 document.getElementById('resultadoLiquido').textContent =
                     (resultadoPrev >= 0 ? '+' : '') + 'R$ ' + resultadoPrev.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            renderMovementosReais() {
+                // Usar fluxo de caixa (movimentações reais)
+                const fluxo = this.data.fluxoCaixa || [];
+
+                const totalEntradasReais = fluxo
+                    .filter(c => c.fluxo === 'Entrada')
+                    .reduce((sum, c) => sum + (c.valor || 0), 0);
+
+                const totalSaidasReais = fluxo
+                    .filter(c => c.fluxo === 'Saída')
+                    .reduce((sum, c) => sum + (c.valor || 0), 0);
+
+                const saldoRealizado = totalEntradasReais - totalSaidasReais;
+
+                document.getElementById('totalEntradasReais').textContent =
+                    'R$ ' + totalEntradasReais.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('totalSaidasReais').textContent =
+                    'R$ ' + totalSaidasReais.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                const corSaldo = saldoRealizado >= 0 ? '#28a745' : '#dc3545';
+                document.getElementById('saldoRealizado').style.color = corSaldo;
+                document.getElementById('saldoRealizado').textContent =
+                    (saldoRealizado >= 0 ? '+' : '') + 'R$ ' + saldoRealizado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                // Renderizar gráfico
+                this.renderFluxoChart(fluxo);
+            }
+
+            renderFluxoChart(fluxo) {
+                // Agrupar entradas por tipo (origem)
+                const entradas = {};
+                const saidas = {};
+
+                fluxo.forEach(item => {
+                    if (item.fluxo === 'Entrada') {
+                        const tipo = item.tipo || 'Sem Tipo';
+                        entradas[tipo] = (entradas[tipo] || 0) + item.valor;
+                    } else if (item.fluxo === 'Saída') {
+                        const tipo = item.tipo || 'Sem Tipo';
+                        saidas[tipo] = (saidas[tipo] || 0) + item.valor;
+                    }
+                });
+
+                const entradasLabels = Object.keys(entradas);
+                const entradasValues = Object.values(entradas);
+                const saidasLabels = Object.keys(saidas);
+                const saidasValues = Object.values(saidas);
+
+                // Cores para o gráfico
+                const coloresEntradas = [
+                    '#28a745', '#20c997', '#17a2b8', '#007bff', '#6f42c1',
+                    '#e83e8c', '#fd7e14', '#ffc107', '#198754', '#0dcaf0'
+                ];
+                const coloresSaidas = [
+                    '#dc3545', '#fd7e14', '#ffc107', '#ff6b6b', '#ff8c42',
+                    '#ffaa40', '#ff6b6b', '#ee5a3f', '#c9184a', '#842029'
+                ];
+
+                const ctx = document.getElementById('fluxoCaixaChart');
+                if (!ctx) return;
+
+                // Destruir gráfico anterior se existir
+                if (this.fluxoChart) {
+                    this.fluxoChart.destroy();
+                }
+
+                // Combinar dados
+                const allLabels = [...new Set([...entradasLabels, ...saidasLabels])];
+                const entradasDataMap = {};
+                const saidasDataMap = {};
+
+                entradasLabels.forEach((label, i) => {
+                    entradasDataMap[label] = entradasValues[i];
+                });
+                saidasLabels.forEach((label, i) => {
+                    saidasDataMap[label] = saidasValues[i];
+                });
+
+                const entradasData = allLabels.map(label => entradasDataMap[label] || 0);
+                const saidasData = allLabels.map(label => saidasDataMap[label] || 0);
+
+                this.fluxoChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: allLabels,
+                        datasets: [
+                            {
+                                label: 'Entradas',
+                                data: entradasData,
+                                backgroundColor: '#28a745',
+                                borderColor: '#1e7e34',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Saídas',
+                                data: saidasData,
+                                backgroundColor: '#dc3545',
+                                borderColor: '#bb2d3b',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return 'R$ ' + value.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
             }
         }
 
