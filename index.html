@@ -476,33 +476,30 @@
     </div>
 
     <script>
-        // CONFIGURAÇÃO - ALTERE ISSO COM SEUS DADOS
+        // CONFIGURAÇÃO - SEUS DADOS REAIS
         const CONFIG = {
-            // Google Sheets API Key (crie uma em https://console.cloud.google.com)
-            // Deixe vazio se usar CSV exportado
-            apiKey: '',
-
-            // ID da sua planilha do Google Sheets
-            spreadsheetId: '15B2dIthjJbvE2Fx224UAsIDK0x_YSAGe56Wu-fyaZdU',
-
-            // Configurações das abas
-            ranges: {
-                inscricoes: 'Inscrições!A:H',  // Ajuste conforme sua estrutura
-                caixa: 'Caixa e Previsões!A:D'
+            // URLs de exportação CSV do Google Sheets
+            csvUrls: {
+                inscricoes: 'https://docs.google.com/spreadsheets/d/15B2dIthjJbvE2Fx224UAsIDK0x_YSAGe56Wu-fyaZdU/export?format=csv&gid=49036079',
+                caixa: 'https://docs.google.com/spreadsheets/d/15B2dIthjJbvE2Fx224UAsIDK0x_YSAGe56Wu-fyaZdU/export?format=csv&gid=1712502285'
             },
 
-            // Mapeamento de colunas (0-indexed)
+            // Mapeamento de colunas (0-indexed) - CONFORME SUA PLANILHA
             columns: {
-                status: 2,           // Coluna de status (Confirmado/Pendente)
-                genero: 3,           // Coluna de gênero (M/F/D)
-                federacao: 4,        // Coluna de federação
-                valor: 5,            // Coluna de valor pago
-                dataInscricao: 1     // Coluna de data
+                nome: 2,              // Coluna C
+                sexo: 5,              // Coluna F (M/F/D)
+                federacao: 6,         // Coluna G
+                tipoInscricao: 11,    // Coluna L (todos os dias ou diária)
+                igreja: 14,           // Coluna O
+                formaPagamento: 15,   // Coluna P (primeiro/segundo/terceiro lote)
+                valorReceber: 16,     // Coluna Q
+                valorRestante: 20,    // Coluna U
+                status: 22            // Coluna W (Confirmado/Pendente)
             },
 
             // Dados da configuração do acampamento
             camp: {
-                totalVagas: 100,
+                totalVagas: 150,
                 precoInteira: 300,
                 precoDiaria: 50
             }
@@ -515,66 +512,145 @@
                     inscricoes: [],
                     caixa: []
                 };
+                this.lastFetchError = null;
             }
 
             async fetch() {
                 try {
-                    // Se você tiver configurado a API Key do Google
-                    if (CONFIG.apiKey) {
-                        await this.fetchFromSheets();
-                    } else {
-                        // Fallback para dados de exemplo
-                        this.loadExampleData();
-                    }
+                    await this.fetchFromCSV();
+                    this.lastFetchError = null;
                     return true;
                 } catch (error) {
                     console.error('Erro ao buscar dados:', error);
-                    this.loadExampleData();
-                    return true;
+                    this.lastFetchError = error.message;
+                    // Tentar carregar dados antigos se houver erro
+                    if (this.data.inscricoes.length === 0) {
+                        this.loadExampleData();
+                    }
+                    return false;
                 }
             }
 
-            async fetchFromSheets() {
-                // Implementação da API do Google Sheets
-                // Você pode usar: https://sheets.googleapis.com/v4/spreadsheets/{spreadsheetId}/values/{range}
-                // Requer CORS habilitado ou um backend proxy
-                console.log('Para usar dados em tempo real:');
-                console.log('1. Configure uma Google Sheets API Key');
-                console.log('2. Habilite o CORS no seu servidor');
-                console.log('3. Ou exporte um CSV e use a URL do arquivo');
+            async fetchFromCSV() {
+                // Fetch da aba Inscrições
+                const inscricoesResponse = await fetch(CONFIG.csvUrls.inscricoes);
+                if (!inscricoesResponse.ok) throw new Error('Erro ao buscar inscrições');
+
+                const inscricoesText = await inscricoesResponse.text();
+                this.data.inscricoes = this.parseCSV(inscricoesText, 'inscricoes');
+
+                // Fetch da aba Caixa
+                const caixaResponse = await fetch(CONFIG.csvUrls.caixa);
+                if (!caixaResponse.ok) throw new Error('Erro ao buscar caixa');
+
+                const caixaText = await caixaResponse.text();
+                this.data.caixa = this.parseCSV(caixaText, 'caixa');
+            }
+
+            parseCSV(csvText, tipo) {
+                const lines = csvText.trim().split('\n');
+                if (lines.length < 2) return [];
+
+                const headers = lines[0].split(',');
+                const data = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const values = this.parseCSVLine(lines[i]);
+                    if (values.length === 0) continue;
+
+                    if (tipo === 'inscricoes') {
+                        data.push({
+                            nome: this.getCSVValue(values, CONFIG.columns.nome),
+                            sexo: this.getCSVValue(values, CONFIG.columns.sexo),
+                            federacao: this.getCSVValue(values, CONFIG.columns.federacao),
+                            tipoInscricao: this.getCSVValue(values, CONFIG.columns.tipoInscricao),
+                            status: this.getCSVValue(values, CONFIG.columns.status),
+                            valorReceber: this.parseNumber(this.getCSVValue(values, CONFIG.columns.valorReceber)),
+                            valorRecebido: this.parseNumber(this.getCSVValue(values, CONFIG.columns.valorReceber)) -
+                                          this.parseNumber(this.getCSVValue(values, CONFIG.columns.valorRestante))
+                        });
+                    } else if (tipo === 'caixa') {
+                        const descricao = this.getCSVValue(values, 0);
+                        const valor = this.parseNumber(this.getCSVValue(values, 1));
+                        if (descricao && valor) {
+                            data.push({
+                                descricao: descricao,
+                                valor: valor,
+                                tipo: descricao.toLowerCase().includes('entrada') ||
+                                      descricao.toLowerCase().includes('inscr') ? 'Entrada' : 'Saída'
+                            });
+                        }
+                    }
+                }
+
+                return data;
+            }
+
+            parseCSVLine(line) {
+                const result = [];
+                let current = '';
+                let insideQuotes = false;
+
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    const nextChar = line[i + 1];
+
+                    if (char === '"') {
+                        insideQuotes = !insideQuotes;
+                    } else if (char === ',' && !insideQuotes) {
+                        result.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                result.push(current.trim());
+                return result;
+            }
+
+            getCSVValue(values, index) {
+                return values[index] ? values[index].replace(/^"|"$/g, '') : '';
+            }
+
+            parseNumber(value) {
+                const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                return isNaN(num) ? 0 : num;
             }
 
             loadExampleData() {
                 // Dados de exemplo para demonstração
                 this.data.inscricoes = [
-                    { nome: 'Participante 1', status: 'Confirmado', genero: 'F', federacao: 'FPB', valor: 300, data: '2026-01-10' },
-                    { nome: 'Participante 2', status: 'Confirmado', genero: 'M', federacao: 'FPB', valor: 300, data: '2026-01-11' },
-                    { nome: 'Participante 3', status: 'Confirmado', genero: 'F', federacao: 'FEPESC', valor: 300, data: '2026-01-12' },
-                    { nome: 'Participante 4', status: 'Pendente', genero: 'M', federacao: 'FPB', valor: 0, data: '2026-01-13' },
-                    { nome: 'Participante 5', status: 'Confirmado', genero: 'D', federacao: 'FEAPESC', valor: 50, data: '2026-01-14' },
+                    { nome: 'Participante 1', status: 'Confirmado', sexo: 'F', federacao: 'FPB', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
+                    { nome: 'Participante 2', status: 'Confirmado', sexo: 'M', federacao: 'FPB', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
+                    { nome: 'Participante 3', status: 'Confirmado', sexo: 'F', federacao: 'FEPESC', valorRecebido: 300, tipoInscricao: 'Todos os dias' },
+                    { nome: 'Participante 4', status: 'Pendente', sexo: 'M', federacao: 'FPB', valorRecebido: 0, tipoInscricao: 'Todos os dias' },
+                    { nome: 'Participante 5', status: 'Confirmado', sexo: 'D', federacao: 'FEAPESC', valorRecebido: 50, tipoInscricao: 'Diária' },
                 ];
 
                 this.data.caixa = [
-                    { tipo: 'Entrada', descricao: 'Inscrições', valor: 1200 },
-                    { tipo: 'Saída', descricao: 'Alimentação', valor: 500 },
-                    { tipo: 'Saída', descricao: 'Hospedagem', valor: 300 }
+                    { descricao: 'Inscrições', valor: 1200, tipo: 'Entrada' },
+                    { descricao: 'Alimentação', valor: 500, tipo: 'Saída' },
+                    { descricao: 'Hospedagem', valor: 300, tipo: 'Saída' }
                 ];
             }
 
             calcularEstatisticas() {
                 const inscricoes = this.data.inscricoes;
 
+                // Filtrar inscrições válidas (com federação preenchida)
+                const inscricoesValidas = inscricoes.filter(i => i.federacao && i.federacao.trim() !== '');
+
                 const stats = {
-                    totalInscritos: inscricoes.length,
-                    confirmados: inscricoes.filter(i => i.status === 'Confirmado').length,
-                    mulheres: inscricoes.filter(i => i.genero === 'F').length,
-                    homens: inscricoes.filter(i => i.genero === 'M').length,
-                    diarias: inscricoes.filter(i => i.genero === 'D').length,
+                    totalInscritos: inscricoesValidas.length,
+                    confirmados: inscricoesValidas.filter(i => i.status && i.status.toLowerCase().includes('confirmado')).length,
+                    mulheres: inscricoesValidas.filter(i => i.sexo === 'F' || i.sexo === 'f').length,
+                    homens: inscricoesValidas.filter(i => i.sexo === 'M' || i.sexo === 'm').length,
+                    diarias: inscricoesValidas.filter(i => i.tipoInscricao && i.tipoInscricao.toLowerCase().includes('diária')).length,
                     totalVagas: CONFIG.camp.totalVagas,
-                    federacoes: this.agruparPorFederacao(),
-                    totalEntradas: inscricoes
-                        .filter(i => i.status === 'Confirmado')
-                        .reduce((sum, i) => sum + (i.valor || 0), 0),
+                    federacoes: this.agruparPorFederacao(inscricoesValidas),
+                    totalEntradas: inscricoesValidas
+                        .filter(i => i.status && i.status.toLowerCase().includes('confirmado'))
+                        .reduce((sum, i) => sum + (i.valorRecebido || 0), 0),
                 };
 
                 stats.percentMulheres = stats.totalInscritos > 0 ?
@@ -587,26 +663,28 @@
                 return stats;
             }
 
-            agruparPorFederacao() {
+            agruparPorFederacao(inscricoes) {
                 const grupos = {};
 
-                this.data.inscricoes.forEach(inscricao => {
+                inscricoes.forEach(inscricao => {
                     const fed = inscricao.federacao || 'Sem Federação';
                     if (!grupos[fed]) {
                         grupos[fed] = { total: 0, confirmados: 0, valor: 0 };
                     }
                     grupos[fed].total++;
-                    if (inscricao.status === 'Confirmado') {
+                    if (inscricao.status && inscricao.status.toLowerCase().includes('confirmado')) {
                         grupos[fed].confirmados++;
-                        grupos[fed].valor += inscricao.valor || 0;
+                        grupos[fed].valor += inscricao.valorRecebido || 0;
                     }
                 });
 
-                return Object.entries(grupos).map(([nome, dados]) => ({
-                    nome,
-                    ...dados,
-                    taxa: dados.total > 0 ? Math.round((dados.confirmados / dados.total) * 100) : 0
-                })).sort((a, b) => b.total - a.total);
+                return Object.entries(grupos)
+                    .map(([nome, dados]) => ({
+                        nome,
+                        ...dados,
+                        taxa: dados.total > 0 ? Math.round((dados.confirmados / dados.total) * 100) : 0
+                    }))
+                    .sort((a, b) => b.total - a.total);
             }
         }
 
@@ -678,11 +756,17 @@
             }
 
             renderCaixa() {
-                const inscricoes = this.data.data.inscricoes;
-                const confirmados = inscricoes.filter(i => i.status === 'Confirmado');
+                const caixa = this.data.caixa;
 
-                const totalEntradas = confirmados.reduce((sum, i) => sum + (i.valor || 0), 0);
-                const totalSaidas = 2000; // Valor fixo de exemplo
+                // Calcular entradas e saídas
+                const totalEntradas = caixa
+                    .filter(c => c.tipo === 'Entrada')
+                    .reduce((sum, c) => sum + (c.valor || 0), 0);
+
+                const totalSaidas = caixa
+                    .filter(c => c.tipo === 'Saída')
+                    .reduce((sum, c) => sum + (c.valor || 0), 0);
+
                 const resultado = totalEntradas - totalSaidas;
 
                 document.getElementById('totalEntradas').textContent =
