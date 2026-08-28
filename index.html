@@ -569,13 +569,13 @@
                 const previsoesResponse = await fetch(CONFIG.csvUrls.previsoes);
                 if (!previsoesResponse.ok) throw new Error('Erro ao buscar previsões');
                 const previsoesText = await previsoesResponse.text();
-                this.data.previsoes = this.parseCSV(previsoesText, 'fluxo');
+                this.data.previsoes = this.parseCSV(previsoesText, 'previsoes');
 
                 // Fetch da aba Fluxo de Caixa
                 const fluxoResponse = await fetch(CONFIG.csvUrls.fluxoCaixa);
                 if (!fluxoResponse.ok) throw new Error('Erro ao buscar fluxo de caixa');
                 const fluxoText = await fluxoResponse.text();
-                this.data.fluxoCaixa = this.parseCSV(fluxoText, 'fluxo');
+                this.data.fluxoCaixa = this.parseCSV(fluxoText, 'fluxoCaixa');
             }
 
             parseCSV(csvText, tipo) {
@@ -609,7 +609,8 @@
                             valorRecebido: this.parseNumber(this.getCSVValue(values, CONFIG.columns.valorReceber)) -
                                           this.parseNumber(this.getCSVValue(values, CONFIG.columns.valorRestante))
                         });
-                    } else if (tipo === 'fluxo') {
+                    } else if (tipo === 'previsoes') {
+                        // Previsões de Lançamentos: Coluna A=Fluxo, B=Tipo, G=Valor
                         const fluxoRaw = this.getCSVValue(values, 0).trim();
                         const tipoDesc = this.getCSVValue(values, 1).trim();
 
@@ -617,41 +618,57 @@
                         if (!fluxoRaw || !tipoDesc) continue;
                         if (fluxoRaw.toLowerCase() === 'fluxo') continue; // Skip header row
 
-                        // Detectar se é entrada ou saída (mais flexível)
+                        // Detectar se é entrada ou saída
                         const fluxoLower = fluxoRaw.toLowerCase();
                         const isEntrada = fluxoLower.includes('entrada') ||
                                          fluxoLower.includes('receita') ||
-                                         fluxoLower.includes('crédito') ||
-                                         fluxoLower === 'in' ||
-                                         fluxoLower === '+';
+                                         fluxoLower.includes('crédito');
                         const isSaida = fluxoLower.includes('saída') ||
                                        fluxoLower.includes('saida') ||
                                        fluxoLower.includes('despesa') ||
-                                       fluxoLower.includes('débito') ||
-                                       fluxoLower === 'out' ||
-                                       fluxoLower === '-';
+                                       fluxoLower.includes('débito');
 
-                        if (!isEntrada && !isSaida) {
-                            console.log(`Ignorando linha sem tipo válido: ${fluxoRaw} | ${tipoDesc}`);
-                            continue;
-                        }
+                        if (!isEntrada && !isSaida) continue;
 
-                        // Tenta coluna G (6) primeiro, depois F (5), depois H (7)
-                        let valor = this.parseNumber(this.getCSVValue(values, 6));
-                        if (valor === 0) {
-                            valor = this.parseNumber(this.getCSVValue(values, 5));
-                        }
-                        if (valor === 0) {
-                            valor = this.parseNumber(this.getCSVValue(values, 7));
-                        }
+                        // Coluna G (índice 6) para Previsões de Lançamentos
+                        const valor = this.parseNumber(this.getCSVValue(values, 6));
 
-                        // Sempre adicionar (mesmo que valor seja 0) para debug
-                        if (valor >= 0) {
+                        if (valor > 0) {
                             data.push({
                                 fluxo: isEntrada ? 'Entrada' : 'Saída',
                                 tipo: tipoDesc,
-                                valor: valor,
-                                origem: fluxoRaw
+                                valor: valor
+                            });
+                        }
+                    } else if (tipo === 'fluxoCaixa') {
+                        // Fluxo de Caixa: Coluna A=Data, B=Fluxo, C=Tipo, F=Valor
+                        const fluxoRaw = this.getCSVValue(values, 1).trim();
+                        const tipoDesc = this.getCSVValue(values, 2).trim();
+
+                        // Pular linhas vazias ou de cabeçalho
+                        if (!fluxoRaw || !tipoDesc) continue;
+                        if (fluxoRaw.toLowerCase() === 'fluxo') continue; // Skip header row
+
+                        // Detectar se é entrada ou saída
+                        const fluxoLower = fluxoRaw.toLowerCase();
+                        const isEntrada = fluxoLower.includes('entrada') ||
+                                         fluxoLower.includes('receita') ||
+                                         fluxoLower.includes('crédito');
+                        const isSaida = fluxoLower.includes('saída') ||
+                                       fluxoLower.includes('saida') ||
+                                       fluxoLower.includes('despesa') ||
+                                       fluxoLower.includes('débito');
+
+                        if (!isEntrada && !isSaida) continue;
+
+                        // Coluna F (índice 5) para Fluxo de Caixa
+                        const valor = this.parseNumber(this.getCSVValue(values, 5));
+
+                        if (valor > 0) {
+                            data.push({
+                                fluxo: isEntrada ? 'Entrada' : 'Saída',
+                                tipo: tipoDesc,
+                                valor: valor
                             });
                         }
                     }
@@ -696,7 +713,14 @@
             }
 
             parseNumber(value) {
-                const num = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+                // Remove 'R$', espaços, pontos de milhar, e converte vírgula em ponto decimal
+                let normalized = value.toString()
+                    .replace(/R\$\s?/g, '')  // Remove R$ e espaço
+                    .trim()
+                    .replace(/\./g, '')     // Remove pontos de milhar
+                    .replace(/,/g, '.');    // Converte vírgula em ponto decimal
+
+                const num = parseFloat(normalized);
                 return isNaN(num) ? 0 : num;
             }
 
