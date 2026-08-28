@@ -877,7 +877,7 @@
 
             renderCaixa() {
                 // Usar previsões de lançamentos para a previsão
-                const previsoes = this.data.previsoes || [];
+                const previsoes = this.data.data.previsoes || [];
 
                 console.log('renderCaixa() - Previsões disponíveis:', previsoes);
                 console.log('Total de previsões:', previsoes.length);
@@ -913,7 +913,7 @@
 
             renderMovementosReais() {
                 // Usar fluxo de caixa (movimentações reais)
-                const fluxo = this.data.fluxoCaixa || [];
+                const fluxo = this.data.data.fluxoCaixa || [];
 
                 console.log('renderMovementosReais() - Fluxo disponível:', fluxo);
                 console.log('Total de movimentações:', fluxo.length);
